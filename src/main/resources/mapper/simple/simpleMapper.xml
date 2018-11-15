@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zhegui.mapper.SimpleMapper">
+
+    <!-- 使用SexEnumTypeHandler处理返回结果（枚举类型） -->
+    <resultMap id="selectByEnumHandlder" type="com.zhegui.model.Simple">
+        <result column="id" property="id" />
+        <result column="name" property="name"/>
+        <result column="telephone" property="telephone"/>
+        <result column="create_date" property="createDate"/>
+        <result column="create_user" property="createUser"/>
+        <result column="sex" property="sexEnum" typeHandler="com.zhegui.simple.SexEnumTypeHandler"/>
+    </resultMap>
+
+    <!-- 演示结果集查询 -->
+    <select id="selectByIdHandlerEnum" parameterType="int" resultMap="selectByEnumHandlder">
+        select * from simple where id = #{id}
+    </select>
+
+    <select id="selectSimpleById" parameterType="int" resultType="com.zhegui.model.Simple">
+        select id,name,telephone,create_date AS createDate,create_user AS createUser
+        from simple where id = #{id}
+    </select>
+
+    <insert id="insertSimple" parameterType="com.zhegui.model.Simple">
+        insert into simple(id,name,telephone,create_date,create_user,sex)
+        VALUES (#{id},#{name},#{telephone},#{createDate},#{createUser},#{sexEnum,typeHandler=com.zhegui.simple.SexEnumTypeHandler})
+    </insert>
+</mapper>
