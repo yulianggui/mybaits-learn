@@ -1,0 +1,182 @@
+https://www.liangzl.com/get-article-detail-18860.html
+https://gitee.com/CristLoader/mybatis-study
+
+
+1. Mapper在spring管理下其实是单例，为什么可以是一个
+单例？ SCOPE -> application
+答：
+   1、在编程式MyBatis中，Mapper的Scope是Method级别的，其实MyBatis
+    对Mapper的调用，使用了阉割版的动态代理，即Mapper是不用
+    去编写实现类的。这时由于MyBatis只是将Mapper中的方法，添加到MapperProxyRegister
+    从注解或者配置的XML中找到对于的SQL，再通过MapperProxy去代理
+    Mapper的方法，在其中执行对应的SQL。简而言之，Mapper主要只是
+    为了接口中的方法，找到对于的SQL，因此，在Spring中是可以单例
+    （容器级别的）
+   2、
+2. MyBatis在Spring集成下没有mapper的xml文件会不会
+报错，为什么？
+不会，Mapper的映射可以使用XML和注解两种方式，通常可以两者结合一起使用
+但要注意，同一个方法只能使用一种方式建议SQL的映射关系。简单的SQL推荐
+使用注解，复杂些的可以使用XML。
+
+3. TypeHandler手写
+手写了一个枚举性别的TypeHandler
+
+4. 手写Plugin,多个interceptor到底谁先执行？顺序由谁
+ 1、多个plugin，这个首先是在根据SqlSession执行Executor的调用栈，
+    Executor-->statementHandler-->parameterHandler-->resultsetHandler
+ 2、顺序执行的，如果添加了多个plugin拦截同一个方法（
+    比如StatementHandler的prepare方法，此时就是顺序执行，即先添加了
+    哪个plugin，就是执行哪个）
+
+
+
+1. TestMapper 作者为什么要设计这样的形式来做？
+为什么不是一个class而是一个interface?
+  1、Mapper只是用作SQL的映射，在MyBatis中，由MapperProxy来代理创建代理执行
+     方法对于的SQL
+  2、如果还需要有实现类，那么对于使用者来说，还需要手动调用Mybatis暴力的某些
+     方法去执行，而这个动作本身Mybatis就可以做到，所有对于用户来说，实现类没有
+     任何意义，只需要通过一个接口的方式告知MyBatis，到哪去拿SQL就行
+  
+2.org.apache.ibatis.executor.BaseExecutor#queryFromDatabase 322行这行代码的意义
+  先对要缓存的Key进行占位符，存入。当另外的sqlSession进行query时，如果检测为占位符，
+  则不可操作。查出数据后，再将占位符替换为数据。
+  类似于防止缓存击穿
+
+3.MyBatis的plugin实现机制
+   拦截的方法都是被Plugin代理的
+   例如：StatementHandler statementHandler = (StatementHandler)this.interceptorChain.pluginAll(statementHandler);
+   InterceptorChain里面有个数组
+      pluginAll会把statementHandler添加到每个数组的成员中
+      public Object pluginAll(Object target) {
+        Interceptor interceptor;
+        for(Iterator var2 = this.interceptors.iterator(); var2.hasNext(); target = interceptor.plugin(target)) {
+            interceptor = (Interceptor)var2.next();
+        }
+
+        return target;
+     }
+     注意这里，代理又被代理了。。。
+     所以顺序显而易见
+
+4.lazy loading 是怎么做到的？
+   如果是需要lazy loading的，则返回一个具有lazy loading功能的代理类
+
+
+
+5.一级缓存
+     一级缓存基于SqlSession，默认开启
+     更新策略，insert、update、delete，后回失效
+  二级缓存
+     基于Mapper级别的，关联查询的缓存在编写的Mapper中
+     开启二级缓存要培训cache
+     二级缓存的问题
+        a:关联性，更新有可能策略更新不到.比一级缓存存在脏数据
+	  的几率还要大
+        b:全部失效，即一个Mapper里面只要有一个update，全部刷新
+	  缓存
+     解决二级缓存的策略：那就是不要用二级缓存了，用三方，如redis等
+
+6.batch插入
+  1、拼接insert，但是有长度限制,通过如下两个命令分析，推荐使用
+    show variables like %packet%
+    show variables like %net_buffer%
+  2、Mybatis提供的ExectorType.BATCH 
+     SqlSession = sqlSessionTemplate.getSqlSessionFactory
+     (ExectorType.BATCH, false);
+     使用方式，跟jdbc批量原理一样
+
+7.嵌套查询
+   1、1:1，两次查询语句
+   2、1：N,1+N问题，不开启懒加载的话，不使用也会查询
+        开启懒加载，用到时查询，跟hibernate的findById一样
+
+
+
+
+版本：3.4.2
+
+1.分析借鉴Mybatis的连接池
+2.bing包里面存放了MapperProxy等
+3.logger包，使用的代理模式
+4.session.getMapper(Class<?> type)
+   SqlSession -->configuration-->mapperRegistry.getMapper
+      knownMappers.get(key)--> (value)MapperProxyFactory
+      MapperProxyFactory.newInstance(动态代理过的Mapper接口实现类)
+         在newInstance里面，由MapperProxy创建代理对象
+5.Simple simple = simpleMapper.selectSimpleById(2);
+  在4步骤中找到Mapper的代理对象simple之后，
+     simpleMapper.selectSimpleById
+      //在MapperProxn.Invoke中，
+      //1、找到SQL  2、参数设置
+      //3、执行     4、结果映射
+      
+  Invoke中，
+     //这里，只有Object对象的方法被调用，才会走这里
+     if(Object.class.equals(method.getDeclaringClass())){
+	return method.invoke(this, args);
+     }
+  接下来在MapperMethod 的实例中执行execute方法
+  -- 跟着SqlCommand-->Select
+  执行selectOne方法（这里就回到了，直接使用selectOne的方式调用一个样）
+  --》CachingExecutor.executor
+        里面持有Executor,因此这里是装饰器模式，而且Executor是SimpleExcutor
+      MappedStatement+param+rowBounds+sql
+      CacheKey key = this.createCacheKey(ms, parameterObject, rowBounds, boundSql);
+        在doQuery是，是SimpleExcutor的实现
+  ---》StamentHandler
+    --query
+  ---》ParamerHandler
+  ---》ResultHandler
+    
+
+6.  org.apache.ibatis.binding.MapperProxy#invoke 
+    这个类的
+    return this.invokeDefaultMethod(proxy, method, args);
+    行什么时候执行？
+    答：JDK1.8新增了在接口中定义default方法的特性，主要是用于在接口中新增特性后，
+    实现其接口的子类不需要实现新增特性的接口，即可拥有新的特性。
+    MapperProxy类中invoke方法中isDefaultMethod分支会在调用接口的default方法时调用。
+
+7. MyBaits执行一条SQL的调用链
+    Configuration
+        --》SqlSession
+	   --》MapperProxy
+	     --》Executor
+	       --》StatmentHandler
+	         --》ParameterHandler 
+		   --》DB
+		     --》ResultSetHandler
+
+
+8. V1.0版本类分析
+    ZGSqlSession
+        --ZGConfiguration
+        --ZGExecutor
+        public <T> T getMapper(Class<?> type)();
+	   --Configuration.getMapper(); 
+	public <T> selectOne(String statement, String parameter);
+           --Executor.query(String statement, String parameter);
+    ZGConfiguration
+       public <T> T getMapper(Class<?> type)();  //返回一个代理类
+       public static MapperXML{
+	  //模拟接口+方法名，SQL的映射
+       }
+    ZGMapperProxy
+       实现InvocationHandler
+       持有ZGMapperProxy
+          在Invoke中，根据Method的全限定方法名，查找SQL
+	  使用ZGMapperProxy.selectOne(根据Method返回的SQL，invoke方法的args);
+    ZGExecutor
+       --SqlSession
+       <T> T query();
+    BootStrap启动类
+
+
+
+
+
+
+
+ 
