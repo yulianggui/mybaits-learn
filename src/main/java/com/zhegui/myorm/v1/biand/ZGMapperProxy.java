@@ -30,6 +30,7 @@ public class ZGMapperProxy implements InvocationHandler{
         if((method.getModifiers() & 1033) == 1 && method.getDeclaringClass().isInterface()){
             //
             System.out.println("忽略！");
+            return null;
         }
 
         //如果是Mapper的接口
