@@ -25,9 +25,10 @@ https://gitee.com/CristLoader/mybatis-study
 4. 手写Plugin,多个interceptor到底谁先执行？顺序由谁
  1、多个plugin，这个首先是在根据SqlSession执行Executor的调用栈，
     Executor-->statementHandler-->parameterHandler-->resultsetHandler
- 2、顺序执行的，如果添加了多个plugin拦截同一个方法（
-    比如StatementHandler的prepare方法，此时就是顺序执行，即先添加了
-    哪个plugin，就是执行哪个）
+ 2、配置了过个plugin拦截同一个方法，此时是代理链
+    即在public Object intercept(ZGInvocation invocation) throws Throwable的方法
+    的方法，后面被代理的先执行，即在配置或者手动添加的时候，后面的intercept会
+    先执行
 
 
 
@@ -40,9 +41,10 @@ https://gitee.com/CristLoader/mybatis-study
      任何意义，只需要通过一个接口的方式告知MyBatis，到哪去拿SQL就行
   
 2.org.apache.ibatis.executor.BaseExecutor#queryFromDatabase 322行这行代码的意义
-  先对要缓存的Key进行占位符，存入。当另外的sqlSession进行query时，如果检测为占位符，
-  则不可操作。查出数据后，再将占位符替换为数据。
-  类似于防止缓存击穿
+  1、先对要缓存的Key进行占位符，存入。当另外的sqlSession进行query时，如果检测为占位符，
+     则不可操作。查出数据后，再将占位符替换为数据。
+     类似于防止缓存击穿
+  2、告诉别人，有个方法正在在查数据库了。其他相同的方法，不用查数据库了，等着查缓存吧
 
 3.MyBatis的plugin实现机制
    拦截的方法都是被Plugin代理的
@@ -58,12 +60,13 @@ https://gitee.com/CristLoader/mybatis-study
         return target;
      }
      注意这里，代理又被代理了。。。
-     所以顺序显而易见
+     在public Object intercept(ZGInvocation invocation) throws Throwable的方法
+     后被代理的先得到执行！
 
 4.lazy loading 是怎么做到的？
    如果是需要lazy loading的，则返回一个具有lazy loading功能的代理类
-
-
+   
+ 
 
 5.一级缓存
      一级缓存基于SqlSession，默认开启
@@ -89,9 +92,13 @@ https://gitee.com/CristLoader/mybatis-study
 
 7.嵌套查询
    1、1:1，两次查询语句
-   2、1：N,1+N问题，不开启懒加载的话，不使用也会查询
-        开启懒加载，用到时查询，跟hibernate的findById一样
-
+   2、1：N,1+N问题
+      如果不开启懒加载，就会出现N+1问题
+      懒加载 减少了性能消耗，一定程度上缓解了1+n带来的性能问题
+      N+1问题：查询主数据，是1次查询，假设这1次查询出n条记录；根据这n条主记录，
+      查询从记录，共需要n次，所以叫数据库1+n问题
+      如何验证：嵌套查询，打印日志
+      https://blog.csdn.net/wangjun5159/article/details/52389480 
 
 
 
@@ -135,7 +142,9 @@ https://gitee.com/CristLoader/mybatis-study
     这个类的
     return this.invokeDefaultMethod(proxy, method, args);
     行什么时候执行？
-    答：JDK1.8新增了在接口中定义default方法的特性，主要是用于在接口中新增特性后，
+    答：
+    前半段的意思是method，要被public修饰，但是不能被abstract、static修饰
+    JDK1.8新增了在接口中定义default方法的特性，主要是用于在接口中新增特性后，
     实现其接口的子类不需要实现新增特性的接口，即可拥有新的特性。
     MapperProxy类中invoke方法中isDefaultMethod分支会在调用接口的default方法时调用。
 
@@ -174,6 +183,10 @@ https://gitee.com/CristLoader/mybatis-study
     BootStrap启动类
 
 
+9. V2.0
+   使用注解进行MapperRegister
+   解耦ZGExecutor职责，Executor缓存
+   添加pluin功能
 
 
 
