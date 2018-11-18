@@ -15,7 +15,7 @@ import java.util.List;
  *    ZGInterceptorChain 中持有所有配置进来的ZGInterceptor 拦截器
  *       调用pluginAll，对target进行链路代理（增强）
  *         即interceptors有多少个满足的，就进行多少次代理
- *            代理对象又被代理了，所有是代理链
+ *            代理对象又被代理了，所以是代理链
  * create by zhegui on 2018/11/18
  */
 public class ZGInterceptorChain {
