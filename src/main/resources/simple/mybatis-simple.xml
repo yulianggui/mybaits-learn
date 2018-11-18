@@ -13,6 +13,9 @@
         <plugin interceptor="com.zhegui.simple.SQLLoggerInterceptor">
             <property name="someProperty" value="100"/>
         </plugin>
+        <plugin interceptor="com.zhegui.simple.TestInereptor">
+            <property name="someProperty" value="90"/>
+        </plugin>
     </plugins>
     
     <environments default="development">
