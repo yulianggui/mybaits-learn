@@ -39,14 +39,15 @@ https://gitee.com/CristLoader/mybatis-study
   2、如果还需要有实现类，那么对于使用者来说，还需要手动调用Mybatis暴力的某些
      方法去执行，而这个动作本身Mybatis就可以做到，所有对于用户来说，实现类没有
      任何意义，只需要通过一个接口的方式告知MyBatis，到哪去拿SQL就行
-  
+  3、如果是一个空的方法，对于新手，可能不知道这里要干嘛，很有可能去
+     填充JDBC的代码
 2.org.apache.ibatis.executor.BaseExecutor#queryFromDatabase 322行这行代码的意义
-  1、先对要缓存的Key进行占位符，存入。当另外的sqlSession进行query时，如果检测为占位符，
-     则不可操作。查出数据后，再将占位符替换为数据。
-     类似于防止缓存击穿
-  2、告诉别人，有个方法正在在查数据库了。其他相同的方法，不用查数据库了，等着查缓存吧
+  1、先对要缓存的Key进行占位符，存入。当同样的sqlSession进行query时，例如嵌套查询
+     需要用到之前的缓存，就去检测是否可以从缓存中获取，如果检测为占位符，或者没有
+     数据则不可在缓存中拿数据操作。查出数据后，再将占位符替换为数据。
 
 3.MyBatis的plugin实现机制
+   在mybatis中，在容器启动的时候，就会去加载InterceptorChain.pluginAll了
    拦截的方法都是被Plugin代理的
    例如：StatementHandler statementHandler = (StatementHandler)this.interceptorChain.pluginAll(statementHandler);
    InterceptorChain里面有个数组
@@ -64,8 +65,10 @@ https://gitee.com/CristLoader/mybatis-study
      后被代理的先得到执行！
 
 4.lazy loading 是怎么做到的？
-   如果是需要lazy loading的，则返回一个具有lazy loading功能的代理类
-   
+   1、只有N+1嵌套查询的时候才会存在懒加载，并且只有开启了懒加载
+      开启懒加载，用到才会去查询
+   2、如果是需要lazy loading的，则返回一个具有lazy loading功能的代理类
+      DeafultResultHandle--->createResultObject
  
 
 5.一级缓存
